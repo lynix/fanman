@@ -1,0 +1,16 @@
+os: linux
+dist: bionic
+language: cpp
+addons:
+  apt:
+    sources:
+    - sourceline: 'ppa:beineri/opt-qt-5.12.7-bionic'
+    packages:
+    - cmake
+    - qt512base 
+    - qt512charts-no-lgpl
+    - qt512serialport
+    - libgl1-mesa-dev
+script:
+  - source /opt/qt512/bin/qt512-env.sh
+  - cmake . && make -j$(nproc)
