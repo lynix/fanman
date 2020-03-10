@@ -18,13 +18,15 @@
 
 #include "portwidget.h"
 
+#include "settings.h"
 #include "widgets/rangecontrol.h"
 
 #include <QHBoxLayout>
 #include <QChartView>
 
 
-PortWidget::PortWidget(const Port* port, QWidget *parent) : QGroupBox(parent)
+PortWidget::PortWidget(const Port* port, QWidget *parent) : QGroupBox(parent),
+    port(port)
 {
     setTitle(port->name());
     setStyleSheet("QGroupBox { font-weight: bold; } ");
@@ -37,7 +39,9 @@ PortWidget::PortWidget(const Port* port, QWidget *parent) : QGroupBox(parent)
     chart->setBackgroundRoundness(0);
 
     vBar = new QVBoxLayout();
-    vBar->addWidget(new RangeControl(chart));
+    int range = Settings::instance().plotRange(port->type(), port->index());
+    RangeControl *rangeControl = new RangeControl(chart, range);
+    vBar->addWidget(rangeControl);
     vBar->insertStretch(-1);
 
     configButton = new QPushButton("Configure");
@@ -55,6 +59,14 @@ PortWidget::PortWidget(const Port* port, QWidget *parent) : QGroupBox(parent)
             &PortWidget::disableConfig);
     connect(configButton, &QPushButton::clicked, this,
             &PortWidget::configClicked);
+
+    connect(rangeControl, &RangeControl::rangeIndexChanged, this,
+            &PortWidget::plotIndexChanged);
+}
+
+void PortWidget::plotIndexChanged(int index)
+{
+    Settings::instance().setPlotRange(port->type(), port->index(), index);
 }
 
 void PortWidget::sensorRenamed(const QString &name)

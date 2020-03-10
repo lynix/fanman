@@ -33,13 +33,14 @@ class RangeControl : public QGroupBox
 
     public:
 
-        explicit RangeControl(const ScrollingTimeChart *chart);
+        explicit RangeControl(const ScrollingTimeChart *chart, int rangeIndex);
 
     private slots:
 
-        void rangeIndexChanged(int index);
+        void rangeControlIndexChanged(int index);
 
     signals:
 
+        void rangeIndexChanged(int index);
         void rangeChanged(quint32 seconds);
 };

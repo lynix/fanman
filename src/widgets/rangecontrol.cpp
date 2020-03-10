@@ -21,7 +21,7 @@
 #include <QHBoxLayout>
 
 
-RangeControl::RangeControl(const ScrollingTimeChart *chart) :
+RangeControl::RangeControl(const ScrollingTimeChart *chart, int rangeIndex) :
     chart(chart),
     box(new QComboBox())
 {
@@ -34,18 +34,19 @@ RangeControl::RangeControl(const ScrollingTimeChart *chart) :
     box->addItem("10 min", 10 * 60);
     box->addItem("30 min", 30 * 60);
     box->addItem("60 min", 60 * 60);
-    box->setCurrentIndex(1);
+    box->setCurrentIndex(rangeIndex);
 
     setLayout(new QHBoxLayout());
     layout()->addWidget(box);
 
     connect(box, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
-            &RangeControl::rangeIndexChanged);
+            &RangeControl::rangeControlIndexChanged);
     connect(this, &RangeControl::rangeChanged, chart,
             &ScrollingTimeChart::setTimeSpanSec);
 }
 
-void RangeControl::rangeIndexChanged(int index)
+void RangeControl::rangeControlIndexChanged(int index)
 {
+    emit rangeIndexChanged(index);
     emit rangeChanged(box->itemData(index).toUInt());
 }

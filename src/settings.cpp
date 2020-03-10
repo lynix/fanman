@@ -24,8 +24,10 @@ static const char *KEY_WINDOW_GEO       = "MainWindow/geometry";
 static const char *KEY_FAN              = "Fan%1";
 static const char *KEY_SENSOR           = "Sensor%1";
 static const char *KEY_PROP_NAME        = "name";
+static const char *KEY_PROP_RANGE       = "range";
 static const char *DEFAULT_FAN_NAME     = "Fan %1";
 static const char *DEFAULT_SENSOR_NAME  = "Sensor %1";
+static const int  DEFAULT_RANGE         = 1;
 
 QString Settings::portKey(Port::Type type, quint8 index, const char *property)
 {
@@ -54,6 +56,11 @@ QString Settings::portName(Port::Type type, quint8 index)
     return s.value(portKey(type, index, KEY_PROP_NAME), defName).toString();
 }
 
+int Settings::plotRange(Port::Type type, quint8 index)
+{
+    return s.value(portKey(type, index, KEY_PROP_RANGE), DEFAULT_RANGE).toInt();
+}
+
 void Settings::setWindowVisible(bool value)
 {
     s.setValue(KEY_WINDOW_VISIBLE, value);
@@ -67,4 +74,9 @@ void Settings::setWindowGeometry(QByteArray geometry)
 void Settings::setPortName(Port::Type type, quint8 index, const QString &name)
 {
     s.setValue(portKey(type, index, KEY_PROP_NAME), name);
+}
+
+void Settings::setPlotRange(Port::Type type, quint8 index, int rangeIndex)
+{
+    s.setValue(portKey(type, index, KEY_PROP_RANGE), rangeIndex);
 }

@@ -31,6 +31,7 @@ class PortWidget : public QGroupBox
         Q_OBJECT
 
         QPushButton         *configButton;
+        const Port          *port;
 
     protected:
 
@@ -38,6 +39,10 @@ class PortWidget : public QGroupBox
         QVBoxLayout         *vBar;
 
         PortWidget(const Port *port, QWidget *parent = nullptr);
+
+    private slots:
+
+        void plotIndexChanged(int index);
 
     public slots:
 

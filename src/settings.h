@@ -44,8 +44,10 @@ class Settings
         bool windowVisible();
         QByteArray windowGeometry();
         QString portName(Port::Type type, quint8 index);
+        int plotRange(Port::Type type, quint8 index);
 
         void setWindowVisible(bool value);
         void setWindowGeometry(QByteArray geometry);
         void setPortName(Port::Type type, quint8 index, const QString &name);
+        void setPlotRange(Port::Type type, quint8 index, int rangeIndex);
 };
