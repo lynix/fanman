@@ -5,6 +5,8 @@ A Qt based GUI for [FanBoy](https://lynix.github.io/fanboy)
 [![License: GPLv3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://opensource.org/licenses/GPL-3.0)
 [![Build Status](https://travis-ci.org/lynix/fanman.svg?branch=master)](https://travis-ci.org/lynix/fanman)
 
+![FanMan](https://github.com/lynix/fanman/blob/master/screenshot.png)
+
 
 ## Summary
 
