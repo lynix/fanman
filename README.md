@@ -42,8 +42,8 @@ $ make -j8
 ## Usage
 
 *FanMan* consists of a single executable. It auto-detects the (USB) serial port
-to use for communicating with *FanBoy*. Please not that this mechanism relies on
-USB *Vendor ID* and *Product ID* and may cause confusion with other
+to use for communicating with *FanBoy*. Please note that this mechanism relies
+on USB *Vendor ID* and *Product ID* and may cause confusion with other
 [Arduino](https://www.arduino.cc) based devices.
 
 *FanMan* saves the latest position and state of the main window. For having it
