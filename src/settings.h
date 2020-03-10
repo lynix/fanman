@@ -31,7 +31,7 @@ class Settings
         Settings(Settings const &other) = delete;
         Settings(Settings &&other) = delete;
 
-        QString portNameKey(Port::Type type, quint8 index);
+        QString portKey(Port::Type type, quint8 index, const char *property);
 
     public:
 

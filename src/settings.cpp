@@ -21,15 +21,16 @@
 
 static const char *KEY_WINDOW_VISIBLE   = "MainWindow/state";
 static const char *KEY_WINDOW_GEO       = "MainWindow/geometry";
-static const char *KEY_FAN_NAME         = "Fan%1/name";
-static const char *KEY_SENSOR_NAME      = "Sensor%1/name";
+static const char *KEY_FAN              = "Fan%1";
+static const char *KEY_SENSOR           = "Sensor%1";
+static const char *KEY_PROP_NAME        = "name";
 static const char *DEFAULT_FAN_NAME     = "Fan %1";
 static const char *DEFAULT_SENSOR_NAME  = "Sensor %1";
 
-QString Settings::portNameKey(Port::Type type, quint8 index)
+QString Settings::portKey(Port::Type type, quint8 index, const char *property)
 {
-    QString key(type == Port::Type::FAN ? KEY_FAN_NAME : KEY_SENSOR_NAME);
-    key = key.arg(index);
+    QString key(type == Port::Type::FAN ? KEY_FAN : KEY_SENSOR);
+    key = key.arg(index).append("/").append(property);
 
     return key;
 }
@@ -50,7 +51,7 @@ QString Settings::portName(Port::Type type, quint8 index)
                                               DEFAULT_SENSOR_NAME);
     defName = defName.arg(index+1);
 
-    return s.value(portNameKey(type, index), defName).toString();
+    return s.value(portKey(type, index, KEY_PROP_NAME), defName).toString();
 }
 
 void Settings::setWindowVisible(bool value)
@@ -65,5 +66,5 @@ void Settings::setWindowGeometry(QByteArray geometry)
 
 void Settings::setPortName(Port::Type type, quint8 index, const QString &name)
 {
-    s.setValue(portNameKey(type, index), name);
+    s.setValue(portKey(type, index, KEY_PROP_NAME), name);
 }
