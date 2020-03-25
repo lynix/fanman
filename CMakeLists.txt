@@ -75,13 +75,14 @@ set(SOURCES
 
 include(GitVersion.cmake)
 
-add_executable(${PROJECT_NAME} ${SOURCES} res/icons.qrc)
+string(TOLOWER ${PROJECT_NAME} BIN)
+add_executable(${BIN} ${SOURCES} res/icons.qrc)
 
-target_compile_options(${PROJECT_NAME} PRIVATE -Wall)
-target_compile_options(${PROJECT_NAME} PRIVATE $<$<CONFIG:Debug>: -g>)
-target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/src")
+target_compile_options(${BIN} PRIVATE -Wall)
+target_compile_options(${BIN} PRIVATE $<$<CONFIG:Debug>: -g>)
+target_include_directories(${BIN} PRIVATE "${CMAKE_SOURCE_DIR}/src")
 
-target_link_libraries(${PROJECT_NAME} PRIVATE
+target_link_libraries(${BIN} PRIVATE
     Qt5::Widgets
     Qt5::Charts
     Qt5::SerialPort
