@@ -1,0 +1,3 @@
+[submodule "fanboy"]
+	path = fanboy
+	url = https://github.com/lynix/fanboy.git
