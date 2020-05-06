@@ -73,7 +73,8 @@ set(SOURCES
     src/windows/sensordialog.h
 )
 
-include(GitVersion.cmake)
+list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
+include(GitVersion)
 
 string(TOLOWER ${PROJECT_NAME} BIN)
 add_executable(${BIN} ${SOURCES} res/icons.qrc)
