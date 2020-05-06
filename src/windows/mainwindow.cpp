@@ -37,7 +37,7 @@ MainWindow::MainWindow(const FanBoy& fanBoy, QWidget *parent) :
     mlayout->setSpacing(20);
     mlayout->setMargin(20);
 
-    for (quint8 i=0; i<FanBoy::NUM_SENSORS; i++) {
+    for (quint8 i=0; i<FanBoy::numSensors(); i++) {
         SensorWidget *w = new SensorWidget(fanBoy.sensor(i), this);
         connect(w, &PortWidget::configClicked, this,
                 &MainWindow::portConfigClicked);
@@ -45,7 +45,7 @@ MainWindow::MainWindow(const FanBoy& fanBoy, QWidget *parent) :
         mlayout->addWidget(w, !(i%2) + mlayout->rowCount() - 1, i%2);
     }
 
-    for (quint8 i=0; i<FanBoy::NUM_FANS; i++) {
+    for (quint8 i=0; i<FanBoy::numFans(); i++) {
         FanWidget *w = new FanWidget(fanBoy.fan(i), this);
         connect(w, &PortWidget::configClicked, this,
                 &MainWindow::portConfigClicked);

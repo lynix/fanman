@@ -65,13 +65,10 @@ class Fan : public Port
         Param    mParam;
 
         void injectState(State state);
-        void injectMode(Mode mode);
-        void injectMapping(quint8 sensor);
-        void injectParam(const Param &param);
 
     public:
 
-        Fan(FanBoy *device, quint8 index);
+        Fan(FanBoy *device, quint8 index, Mode mode, quint8 sensor, const Param &param);
 
         virtual Type type() const override { return FAN; }
         Mode mode() const { return mMode; };

@@ -59,14 +59,13 @@ void TrayIcon::settingsSaved()
                 QSystemTrayIcon::Information, TIMEOUT_SUCCESS);
 }
 
-void TrayIcon::settingsLoaded(bool success)
+void TrayIcon::settingsLoaded()
 {
-    QSystemTrayIcon::MessageIcon icon = success ? QSystemTrayIcon::Information :
-                                                  QSystemTrayIcon::Critical;
-    QString title = success ? "Settings saved" : "Error";
-    QString message = success ? "Settings have been loaded from EEPROM." :
-                                "Failed to save settings to EEPROM!";
-    int timeout = success ? TIMEOUT_SUCCESS : TIMEOUT_ERROR;
+    showMessage("Settings loaded", "Settings have been loaded from EEPROM.",
+                QSystemTrayIcon::Information, TIMEOUT_SUCCESS);
+}
 
-    showMessage(title, message, icon, timeout);
+void TrayIcon::showError(QString message)
+{
+    showMessage("Error", message, QSystemTrayIcon::Critical, TIMEOUT_ERROR);
 }

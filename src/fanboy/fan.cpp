@@ -21,11 +21,11 @@
 #include "fanboy/fanboy.h"
 
 
-Fan::Fan(FanBoy* device, quint8 index) : Port(device, FAN, index),
-    mMode(MODE_MANUAL),
-    mSensor(0),
-    mState({0, 0}),
-    mParam({0, 0, 0, 0})
+Fan::Fan(FanBoy* device, quint8 index, Mode mode, quint8 sensor, const Param &param) : Port(device, FAN, index),
+    mMode(mode),
+    mSensor(sensor),
+    mState({ .duty = 0, .rpm = 0 }),
+    mParam(param)
 {
 }
 
@@ -35,50 +35,43 @@ void Fan::injectState(Fan::State state)
     emit stateUpdated(mState);
 }
 
-void Fan::injectMode(Mode mode)
-{
-    if (mode != mMode) {
-        mMode = mode;
-        emit modeChanged(mode);
-    }
-}
-
-void Fan::injectMapping(quint8 sensor)
-{
-    if (mSensor != sensor) {
-        mSensor = sensor;
-        emit sensorChanged(sensor);
-    }
-}
-
-void Fan::injectParam(const Param &param)
-{
-    if (mParam != param) {
-        mParam = param;
-        emit paramChanged(param);
-    }
-}
-
 void Fan::setMode(Mode mode)
 {
-    if (mMode != mode)
-        device->setFanMode(mIndex, mode);
+    if (mMode != mode) {
+        if (device->setFanMode(mIndex, mode)) {
+            mMode = mode;
+            emit modeChanged(mode);
+        }
+    }
 }
 
 void Fan::setSensor(quint8 index)
 {
-    if (mSensor != index)
-        device->setFanSensor(mIndex, index);
+    if (mSensor != index) {
+        if (device->setFanSensor(mIndex, index)) {
+            mSensor = index;
+            emit sensorChanged(index);
+        }
+    }
 }
 
 void Fan::setParam(const Param &param)
 {
-    if (mParam != param)
-        device->setFanParam(mIndex, param);
+    if (mParam != param) {
+        if (device->setFanParam(mIndex, param)) {
+            mParam = param;
+            emit paramChanged(param);
+        }
+    }
 }
 
 void Fan::setFixedDuty(quint8 duty)
 {
-    setMode(MODE_MANUAL);
-    device->setFanFixedDuty(mIndex, duty);
+    if (device->setFanFixedDuty(mIndex, duty)) {
+        if (mMode != MODE_MANUAL) {
+            mMode = MODE_MANUAL;
+            emit modeChanged(mMode);
+        }
+        emit fixedDutyChanged(duty);
+    }
 }

@@ -41,7 +41,8 @@ class TrayIcon : public QSystemTrayIcon
     public slots:
 
         void settingsSaved();
-        void settingsLoaded(bool success);
+        void settingsLoaded();
+        void showError(QString message);
 
     signals:
 

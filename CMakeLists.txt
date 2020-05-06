@@ -19,9 +19,6 @@ cmake_minimum_required(VERSION 3.5)
 
 project(FanMan LANGUAGES CXX)
 
-set(CMAKE_AUTOMOC ON)
-set(CMAKE_AUTORCC ON)
-
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -76,9 +73,13 @@ set(SOURCES
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 include(GitVersion)
 
+add_subdirectory("${PROJECT_SOURCE_DIR}/fanboy/libfanboy" libfanboy)
+set_property(TARGET fanboy PROPERTY POSITION_INDEPENDENT_CODE ON)
+
 string(TOLOWER ${PROJECT_NAME} BIN)
 add_executable(${BIN} ${SOURCES} res/icons.qrc)
 
+set_target_properties(${BIN} PROPERTIES AUTOMOC ON AUTORCC ON)
 target_compile_options(${BIN} PRIVATE -Wall)
 target_compile_options(${BIN} PRIVATE $<$<CONFIG:Debug>: -g>)
 target_include_directories(${BIN} PRIVATE "${CMAKE_SOURCE_DIR}/src")
@@ -87,4 +88,5 @@ target_link_libraries(${BIN} PRIVATE
     Qt5::Widgets
     Qt5::Charts
     Qt5::SerialPort
+    fanboy
 )

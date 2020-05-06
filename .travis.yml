@@ -13,4 +13,5 @@ addons:
     - libgl1-mesa-dev
 script:
   - source /opt/qt512/bin/qt512-env.sh
+  - git submodule init
   - cmake . && make -j$(nproc)

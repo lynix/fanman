@@ -18,252 +18,169 @@
 
 #include "fanboy.h"
 
-#include <QDateTime>
+#include <libfanboy.h>
+
 #include <QDebug>
-#include <QRegularExpression>
 #include <QSerialPortInfo>
-#include <QThread>
 
 
-quint16 FanBoy::USB_VENDOR_ID    = 0x2341;
-quint16 FanBoy::USB_PRODUCT_ID   = 0x8036;
+static quint16 USB_VENDOR_ID      = 0x2341;
+static quint16 USB_PRODUCT_ID     = 0x8036;
+static quint16 DEFAULT_UPDATE_INT = 1000;
 
-quint8  FanBoy::NUM_FANS    = 4;
-quint8  FanBoy::NUM_SENSORS = 2;
-
-static quint16 DEFAULT_UPDATE_INT = 1;
-
-static const char *CMD_VERSION  = "version";
-static const char *CMD_STATUS   = "status";
-static const char *CMD_SAVE     = "save";
-static const char *CMD_LOAD     = "load";
-static const char *CMD_SET      = "set";
-static const char *CMD_MODE     = "mode";
-static const char *CMD_MAP      = "map";
-static const char *CMD_LINEAR   = "linear";
-static const char *STATE_DISC   = "disconnected";
-
-static QRegularExpression RE_FLOAD("^Failed to load settings from EEPROM!$");
-static QRegularExpression RE_FMAP("^Fan (\\d) mapped to sensor (\\d)$");
-static QRegularExpression RE_FMODE("^Fan (\\d) set to mode '(.+)'$");
-static QRegularExpression RE_FPARA("^Fan (\\d) linear params (\\d+\\.\\d\\d),(\\d+),(\\d+\\.\\d\\d),(\\d+)$");
-static QRegularExpression RE_SAVE("^Settings saved to EEPROM$");
-static QRegularExpression RE_SET("^Setting fan \\d duty \\d+%$");
-static QRegularExpression RE_SFAN("^Fan (\\d): ((\\d+)% @ (\\d+) rpm|disconnected)$");
-static QRegularExpression RE_SLOAD("^Settings loaded from EEPROM$");
-static QRegularExpression RE_SMODE("^Setting fan (\\d) mode '(.+)'$");
-static QRegularExpression RE_STATUS("^Setting status interval \\d+$");
-static QRegularExpression RE_STEMP("^Temp (\\d): ((\\d+\\.\\d\\d) C|disconnected)$");
-static QRegularExpression RE_TIME("^Built: (.+)$");
-static QRegularExpression RE_VERS("^Version: (.+)$");
 
 FanBoy::FanBoy(const char* path, QObject *parent) : QObject(parent)
 {
-    QString portName(path);
+    QString port(path);
     if (!path) {
         QList<QSerialPortInfo> ports = QSerialPortInfo::availablePorts();
         foreach (QSerialPortInfo portInfo, ports) {
-            if (portInfo.vendorIdentifier() == FanBoy::USB_VENDOR_ID &&
-                    portInfo.productIdentifier() == FanBoy::USB_PRODUCT_ID) {
-                portName = portInfo.portName();
+            if (portInfo.vendorIdentifier() == USB_VENDOR_ID &&
+                    portInfo.productIdentifier() == USB_PRODUCT_ID) {
+                port = portInfo.systemLocation();
                 break;
             }
         }
     }
-    if (portName.isEmpty())
-        throw QString("No FanBoy found");
-    qDebug() << "Using port" << portName;
+    if (port.isEmpty()) {
+        qCritical() << "No FanBoy found";
+        return;
+    }
+    qDebug() << "Using port" << port;
 
-    port.setPortName(portName);
-    port.setBaudRate(QSerialPort::Baud57600);
-    port.setDataBits(QSerialPort::Data8);
-    port.setParity(QSerialPort::NoParity);
-    port.setStopBits(QSerialPort::OneStop);
-    port.setFlowControl(QSerialPort::SoftwareControl);
+    if (!fb_init(port.toLatin1().toStdString().c_str())) {
+        qCritical() << "Failed to initialize FanBoy:"
+                    << fb_error();
+        return;
+    }
 
-    if (!port.open(QIODevice::ReadWrite))
-        throw port.errorString();
+    if (!readConfig())
+        return;
 
-    port.setRequestToSend(true);
-
-    for (int i=0; i<NUM_FANS; i++)
-        fans.append(new Fan(this, i));
-    for (int i=0; i<NUM_SENSORS; i++)
-        sensors.append(new Sensor(this, i));
-
-    connect(&port, &QSerialPort::readyRead, this, &FanBoy::handleSerialData);
-    connect(&port, &QSerialPort::errorOccurred, this, &FanBoy::serialError);
-
-    sendCommand(CMD_VERSION);
-    setUpdateInterval(DEFAULT_UPDATE_INT);
+    connect(&updateTimer, &QTimer::timeout, this, &FanBoy::updateValues);
+    updateTimer.start(DEFAULT_UPDATE_INT);
 }
 
 FanBoy::~FanBoy()
 {
-    disconnect(&port, &QSerialPort::readyRead, this, &FanBoy::handleSerialData);
-
-    setUpdateInterval(0);
-    port.waitForBytesWritten(1000);
-    port.close();
+    updateTimer.stop();
 }
 
-void FanBoy::sendCommand(const QString &cmd)
+bool FanBoy::readConfig()
 {
-    port.write(QString(cmd).append("\n").toLatin1());
+    fb_version_t vers;
+    if (!fb_version(&vers)) {
+        fb_exit();
+        qCritical() << "Failed to read firmware version:"
+                    << fb_error();
+        return false;
+    }
+    fwVersion = vers.version;
+    fwBuild = vers.build;
+
+    fb_config_t config;
+    if (!fb_config(&config)) {
+        fb_exit();
+        qCritical() << "Failed to read config:"
+                    << fb_error();
+        return false;
+    }
+
+    for (int i=0; i<NUM_FAN; i++) {
+        Fan::Mode mode = config.fan[i].mode == MODE_MANUAL ?
+                         Fan::MODE_MANUAL : Fan::MODE_LINEAR;
+        Fan::Param param = { .lowDuty = config.fan[i].param.min_duty,
+                             .lowTemp = (qreal)config.fan[i].param.min_temp / 100.0,
+                             .highDuty = config.fan[i].param.max_duty,
+                             .highTemp = (qreal)config.fan[i].param.max_temp / 100.0 };
+        fans.append(new Fan(this, i, mode, config.fan[i].sensor, param));
+    }
+    for (int i=0; i<NUM_TEMP; i++) {
+        sensors.append(new Sensor(this, i));
+    }
+    // TODO: reflect temperature unit selection
+
+    return true;
 }
 
-void FanBoy::handleSerialData()
+void FanBoy::updateValues()
 {
-    while (port.canReadLine()) {
-        QString line = QString::fromLatin1(port.readLine()).trimmed();
-        QRegularExpressionMatch match;
+    fb_status_t status;
+    if (!fb_status(&status)) {
+        emit error(QString("Failed to query FanBoy status: %s").append(fb_error()));
+        return;
+    }
 
-        if ((match = RE_SFAN.match(line)).hasMatch())
-            handleFanStatus(match);
-        else if ((match = RE_STEMP.match(line)).hasMatch())
-            handleSensorStatus(match);
-        else if ((match = RE_FMODE.match(line)).hasMatch() ||
-                 (match = match = RE_SMODE.match(line)).hasMatch())
-            handleFanMode(match);
-        else if ((match = RE_FMAP.match(line)).hasMatch())
-            handleFanMap(match);
-        else if ((match = RE_FPARA.match(line)).hasMatch())
-            handleFanPara(match);
-        else if ((match = RE_VERS.match(line)).hasMatch())
-            handleVersion(match);
-        else if ((match = RE_TIME.match(line)).hasMatch())
-            handleTimestamp(match);
-        else if ((match = RE_SET.match(line)).hasMatch())
-            handleFixedDuty(match);
-        else if ((match = RE_STATUS.match(line)).hasMatch())
-            handleStatus(match);
-        else if ((match = RE_SAVE.match(line)).hasMatch())
-            emit settingsSaved();
-        else if ((match = RE_SLOAD.match(line)).hasMatch())
-            emit settingsLoaded(true);
-        else if ((match = RE_FLOAD.match(line)).hasMatch())
-            emit settingsLoaded(false);
+    for (int i=0; i<NUM_FAN; i++) {
+        if (status.fan[i].rpm == NCONN)
+            fans[i]->unplug();
         else
-            qDebug() << "Unhandled message:" << line;
+            fans[i]->injectState({ .duty = status.fan[i].duty, .rpm = status.fan[i].rpm });
+    }
+
+    for (int i=0; i<NUM_TEMP; i++) {
+        if (status.temp[i] == NCONN)
+            sensors[i]->unplug();
+        else
+            sensors[i]->injectValue((qreal)status.temp[i] / 100.0);
     }
 }
 
-void FanBoy::serialError(QSerialPort::SerialPortError error)
+bool FanBoy::setFanFixedDuty(quint8 index, quint8 duty)
 {
-    qCritical() << "Serial error:" << error;
+    bool rc = fb_set_duty(index, duty);
+    if (!rc)
+        emit error(QString("Failed to set fan duty: %s").append(fb_error()));
+
+    return rc;
 }
 
-void FanBoy::handleFanStatus(const QRegularExpressionMatch &match)
+bool FanBoy::setFanMode(quint8 index, Fan::Mode mode)
 {
-    quint8 fanNo = match.captured(1).toUInt()-1;
-    QString state = match.captured(2);
-    if (state == STATE_DISC)
-        fans[fanNo]->unplug();
-    else {
-        quint8 duty = match.captured(3).toUInt();
-        quint16 rpm = match.captured(4).toUInt();
-        fans[fanNo]->injectState({duty, rpm});
-    }
+    bool rc = fb_set_mode(index, mode == Fan::MODE_MANUAL ?
+                              MODE_MANUAL : MODE_LINEAR);
+    if (!rc)
+        emit error(QString("Failed to set fan mode: %s").append(fb_error()));
+
+    return rc;
 }
 
-void FanBoy::handleSensorStatus(const QRegularExpressionMatch &match)
+bool FanBoy::setFanSensor(quint8 index, quint8 sensor)
 {
-    quint8 sensorNo = match.captured(1).toUInt()-1;
-    QString state = match.captured(2);
-    if (state == STATE_DISC)
-        sensors[sensorNo]->unplug();
-    else
-        sensors[sensorNo]->injectValue(match.captured(3).toDouble());
+    bool rc = fb_set_map(index, sensor);
+    if (!rc)
+        emit error(QString("Failed to set fan mapping: %s").append(fb_error()));
+
+    return rc;
 }
 
-void FanBoy::handleFanMode(const QRegularExpressionMatch &match)
+bool FanBoy::setFanParam(quint8 index, const Fan::Param& param)
 {
-    quint8 fanNo = match.captured(1).toUInt()-1;
-    QString modeStr = match.captured(2);
-    fans[fanNo]->injectMode(modeStr == "manual" ? Fan::MODE_MANUAL :
-                                                  Fan::MODE_LINEAR);
-}
+    linear_t params = { .min_temp = static_cast<uint16_t>(param.lowTemp * 100),
+                        .min_duty = param.lowDuty,
+                        .max_temp = static_cast<uint16_t>(param.highTemp * 100),
+                        .max_duty = param.highDuty };
 
-void FanBoy::handleFanMap(const QRegularExpressionMatch &match)
-{
-    quint8 fanNo = match.captured(1).toUInt()-1;
-    quint8 sensor = match.captured(2).toUInt()-1;
-    fans[fanNo]->injectMapping(sensor);
-}
+    bool rc = fb_set_linear(index, &params);
+    if (!rc)
+        emit error(QString("Failed to set params: %s").append(fb_error()));
 
-void FanBoy::handleFanPara(const QRegularExpressionMatch &match)
-{
-    quint8 fanNo = match.captured(1).toUInt()-1;
-    qreal lowTemp = match.captured(2).toDouble();
-    quint8 lowDuty = match.captured(3).toUInt();
-    qreal highTemp = match.captured(4).toDouble();
-    quint8 highDuty = match.captured(5).toUInt();
-    fans[fanNo]->injectParam({lowDuty, lowTemp, highDuty, highTemp});
-}
-
-void FanBoy::handleVersion(const QRegularExpressionMatch &match)
-{
-    fwVersion = match.captured(1);
-    queryFans(); // hijack version report to trigger fan discovery
-
-    qDebug() << "FanBoy firmware version:" << fwVersion;
-}
-
-void FanBoy::handleTimestamp(const QRegularExpressionMatch &match)
-{
-    fwBuild = match.captured(1);
-}
-
-void FanBoy::handleFixedDuty(const QRegularExpressionMatch &)
-{
-    // ignore
-}
-
-void FanBoy::handleStatus(const QRegularExpressionMatch &)
-{
-    // ignore
-}
-
-void FanBoy::queryFans()
-{
-    for (int i=0; i<NUM_FANS; i++) {
-        sendCommand(QString(CMD_MODE).append(" %1").arg(i+1));
-        sendCommand(QString(CMD_MAP).append(" %1").arg(i+1));
-        sendCommand(QString(CMD_LINEAR).append(" %1").arg(i+1));
-    }
-}
-
-void FanBoy::setFanFixedDuty(quint8 index, quint8 duty)
-{
-    sendCommand(QString(CMD_SET).append(" %1 %2").arg(index+1).arg(duty));
-}
-
-void FanBoy::setFanMode(quint8 index, Fan::Mode mode)
-{
-    QString command = QString(CMD_MODE).append(" %1 %2").arg(index+1);
-    command = command.arg(mode == Fan::MODE_MANUAL ? "manual" : "linear");
-
-    sendCommand(command);
-}
-
-void FanBoy::setFanSensor(quint8 index, quint8 sensor)
-{
-    sendCommand(QString(CMD_MAP).append(" %1 %2").arg(index+1).arg(sensor+1));
-}
-
-void FanBoy::setFanParam(quint8 index, const Fan::Param& param)
-{
-    QString command = QString(CMD_LINEAR).append(" %1 %2,%3,%4,%5");
-    command = command.arg(index+1);
-    command = command.arg(param.lowTemp).arg(param.lowDuty);
-    command = command.arg(param.highTemp).arg(param.highDuty);
-
-    sendCommand(command);
+    return rc;
 }
 
 QString FanBoy::version() const
 {
     return fwVersion;
+}
+
+quint8 FanBoy::numFans()
+{
+    return NUM_FAN;
+}
+
+quint8 FanBoy::numSensors()
+{
+    return NUM_TEMP;
 }
 
 Fan* FanBoy::fan(quint8 index) const
@@ -282,15 +199,21 @@ Sensor* FanBoy::sensor(quint8 index) const
 
 void FanBoy::saveSettings()
 {
-    sendCommand(CMD_SAVE);
+    if (fb_save())
+        emit settingsSaved();
+    else
+        emit error(QString("Failed to save settings: ").append(fb_error()));
 }
 
 void FanBoy::loadSettings()
 {
-    sendCommand(CMD_LOAD);
+    if (fb_load())
+        emit settingsLoaded();
+    else
+        emit error(QString("Failed to load settings: ").append(fb_error()));
 }
 
 void FanBoy::setUpdateInterval(quint8 sec)
 {
-    sendCommand(QString(CMD_STATUS).append(" %1").arg(sec));
+    updateTimer.setInterval(sec * 1000);
 }

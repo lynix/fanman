@@ -33,7 +33,7 @@ FanDialog::FanDialog(Fan *fan, QWidget *parent, Qt::WindowFlags f) :
     // sensor mapping
     gridLayout->addWidget(new QLabel("Sensor:"), gridLayout->rowCount(), 0);
     mappedSensor = new QComboBox();
-    for (int i=0; i<FanBoy::NUM_SENSORS; i++)
+    for (int i=0; i<FanBoy::numSensors(); i++)
         mappedSensor->addItem(QString("Sensor %1").arg(i+1), i);
     mappedSensor->setCurrentIndex(fan->sensor());
     gridLayout->addWidget(mappedSensor, gridLayout->rowCount()-1, 1);

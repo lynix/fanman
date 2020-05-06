@@ -20,7 +20,7 @@
 
 #include <QList>
 #include <QObject>
-#include <QSerialPort>
+#include <QTimer>
 
 #include "fanboy/fan.h"
 #include "fanboy/sensor.h"
@@ -32,31 +32,23 @@ class FanBoy : public QObject
 
         friend class Fan;
 
-        QSerialPort      port;
+        QTimer           updateTimer;
         QString          fwVersion;
         QString          fwBuild;
         QList<Fan *>     fans;
         QList<Sensor *>  sensors;
 
-        void sendCommand(const QString &cmd);
-        void queryFans();
+        bool readConfig();
 
-        void handleFanStatus(const QRegularExpressionMatch &match);
-        void handleSensorStatus(const QRegularExpressionMatch &match);
-        void handleFanMode(const QRegularExpressionMatch &match);
-        void handleFanMap(const QRegularExpressionMatch &match);
-        void handleFanPara(const QRegularExpressionMatch &match);
-        void handleVersion(const QRegularExpressionMatch &match);
-        void handleTimestamp(const QRegularExpressionMatch &match);
-        void handleFixedDuty(const QRegularExpressionMatch &match);
-        void handleStatus(const QRegularExpressionMatch &match);
+        bool setFanFixedDuty(quint8 index, quint8 duty);
+        bool setFanMode(quint8 index, Fan::Mode mode);
+        bool setFanSensor(quint8 index, quint8 sensor);
+        bool setFanParam(quint8 index, const Fan::Param &param);
 
     public:
 
-        static quint16 USB_VENDOR_ID;
-        static quint16 USB_PRODUCT_ID;
-        static quint8  NUM_FANS;
-        static quint8  NUM_SENSORS;
+        static quint8  numFans();
+        static quint8  numSensors();
 
         FanBoy(const char *path = nullptr, QObject *parent = nullptr);
         ~FanBoy();
@@ -65,23 +57,16 @@ class FanBoy : public QObject
         Fan      *fan(quint8 index) const;
         Sensor   *sensor(quint8 index) const;
 
-    private slots:
-
-        void handleSerialData();
-        void serialError(QSerialPort::SerialPortError serialPortError);
-        void setFanFixedDuty(quint8 index, quint8 duty);
-        void setFanMode(quint8 index, Fan::Mode mode);
-        void setFanSensor(quint8 index, quint8 sensor);
-        void setFanParam(quint8 index, const Fan::Param &param);
-
     public slots:
 
         void saveSettings();
         void loadSettings();
+        void updateValues();
         void setUpdateInterval(quint8 sec);
 
     signals:
 
         void settingsSaved();
-        void settingsLoaded(bool success);
+        void settingsLoaded();
+        void error(QString message);
 };
